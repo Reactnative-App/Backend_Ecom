@@ -1,15 +1,15 @@
-const RegisterAdmin = require("../models/authModel");
+const User = require("../models/authModel");
 module.exports.register = async (req, res, next) => {
   console.log(req.body);
-  const RegisterAdminData = await new RegisterAdmin(req.body).save();
-  console.log(RegisterAdminData);
+  const UserData = await new User(req.body).save();
+  console.log(UserData);
   // res.send("user register")
   res
     .status(200)
-    .json({ data: RegisterAdminData, message: "Register Successfully" });
+    .json({ data: UserData, message: "Register Successfully" });
 };
 module.exports.login = async (req, res, next) => {
-  const UserDetails = await RegisterAdmin.findOne({ email: req.body.email });
+  const UserDetails = await User.findOne({ email: req.body.email });
   console.log(req.body, UserDetails, "req");
   let loggedIn = false;
 
@@ -28,3 +28,35 @@ module.exports.login = async (req, res, next) => {
   }
   res.status(201).json(obj);
 };
+
+module.exports.signUpWithGoogle=async (req, res)=> {
+  const {access_token,mail} = req.body; // {email, password, role}
+  const result = await AuthService.signUpgoogle(access_token); // Use the signupService
+  if(result){
+    const UserDetails = await User.findOne({ email: req.body.email });
+    res.status(200).json({data:UserDetails});
+  }
+  else{
+    const UserData = await new User(req.body).save();
+    res.status(200).json({data:UserData});
+  }
+
+  // Send success response here
+ 
+}
+
+module.exports.che=async (req, res)=> {
+  const {access_token,mail} = req.body; // {email, password, role}
+  const result = await AuthService.signUpgoogle(access_token); // Use the signupService
+  if(result){
+    const UserDetails = await User.findOne({ email: req.body.email });
+    res.status(200).json({data:UserDetails});
+  }
+  else{
+    const UserData = await new User(req.body).save();
+    res.status(200).json({data:UserData});
+  }
+
+  // Send success response here
+ 
+}

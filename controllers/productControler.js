@@ -7,8 +7,21 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 
+//for single file
 
-//for single file 
+const storage2 = multer.diskStorage({
+	destination: function (req, file, cb) {
+	  cb(null, "./public/my-uploads-single");
+	},
+	filename: function (req, file, cb) {
+	  const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+	  cb(null, file.fieldname + "-" + uniqueSuffix + ".jpg");
+	},
+  });
+  
+  module.exports.upload = multer({ storage: storage2 });
+
+//for multiple file uploads
 const storage = multer.diskStorage({
 	destination: function (req, file, cb) {
 		cb(null, './public/my-uploads');
@@ -19,9 +32,6 @@ const storage = multer.diskStorage({
 	},
 });
 
-module.exports.upload = multer({ storage: storage });
-
-//for multiple file uploads
 const uploadd = multer({
 	storage: storage,
 	// limits: { fileSize: 20  1024  1024 }, // 10MB
@@ -31,28 +41,103 @@ const uploadd = multer({
 });
 
 module.exports.fileUploadMultiple = uploadd.fields([
-	{ name: 'image', maxCount: 5 },
+	{ name: 'image', maxCount: 20 },
 	// { name: 'penCardImage', maxCount: 1 },
 ]);
-
 
 // PRODUCTS   //
 // for add product
 module.exports.addProduct = async (req, res, next) => {
-	console.log(req.file);
-	const full_data = {
-		img: 'http://localhost:2000' + req.file.path.split('public')[1],
-		...req.body,
-	};
-	const AddProduct = await new ProductModel(full_data).save();
+	console.log(req.body);
+	// const full_data = {
+	// 	img: 'http://localhost:2000' + req.file.path.split('public')[1],
+	// 	...req.body,
+	// };
+	const AddProduct = await new ProductModel.ProductTable(req.body).save();
 
 	res.status(200).json({ data: AddProduct, message: 'Register Successfully' });
 };
 
+//product varient
+module.exports.addProductVarients = async (req, res, next) => {
+	const data = await ProductModel.ProductVarientTable.findOne({
+		id: req.body.productId,
+	});
+	let variants = [];
+	let obj={...req.body}
+
+	if (data?.variants?.length) {
+	 let checkSizeIndex=data?.variants?.findIndex((variant)=>variant.size===req.body.size)
+	 console.log(data,'index',req.body.size,"----------",checkSizeIndex);
+	 if(checkSizeIndex>-1){
+		delete obj.productId
+		data?.variants.splice(checkSizeIndex,1,obj)
+		console.log(data,'ddddd');
+		variants=[...data.variants]
+		AddVariants = await ProductModel.ProductVarientTable.findOneAndUpdate(
+			{ id: req.body.productId },
+			{variants:variants},
+			{ new: true }
+		);
+		res
+			.status(200)
+			.json({ data: AddVariants, message: 'Image Add Successfully' });
+		return;
+	 }
+
+	 else{
+		delete obj.productId
+		variants=[...data?.variants,obj]
+		AddVariants = await ProductModel.ProductVarientTable.findOneAndUpdate(
+			{ id: req.body.productId },
+			{variants:variants},
+			{ new: true }
+		);
+		res
+			.status(200)
+			.json({ data: AddVariants, message: 'Image Add Successfully' });
+		return;
+
+	 }
+
+	} else {
+		delete obj.productId
+		const AddProductVarients = await new ProductModel.ProductVarientTable(
+			{productId:req.body.productId,variants:[obj]}
+		).save();
+		res
+		.status(200)
+		.json({ data: AddProductVarients, message: 'Varient added Successfully' });
+	}
+
+};
+
+module.exports.updateProduct = async (req, res, next) => {
+	console.log(req.body);
+	// const full_data = {
+	// 	img: 'http://localhost:2000' + req.file.path.split('public')[1],
+	// 	...req.body,
+	// };
+	const UpdatedProduct = await ProductModel.ProductTable.findOneAndUpdate(
+		{ _id: req.params.id },
+		req.body,
+		{ new: true }
+	);
+
+	res
+		.status(200)
+		.json({ data: UpdatedProduct, message: 'Product Update Successfully' });
+};
 
 // for get all product
 module.exports.getAllProduct = async (req, res, next) => {
-	const getProductList = await ProductModel.ProductTable.find().populate();
+	console.log(req.query, 'req');
+	const getProductList = await ProductModel.ProductTable.find({
+		// productName: { $regex: '^' + req.query.search, $options: 'i' },
+	})
+		.skip(3 * req?.query?.size)
+		.limit(req?.query?.limit)
+		.populate(['productVarientsId','productImagesId']);
 	res
 		.status(200)
 		.json({ data: getProductList, message: 'Product list get Successfully' });
@@ -66,22 +151,35 @@ module.exports.getProduct = async (req, res, next) => {
 		productId: req.params.id,
 	});
 	console.log(productImages, 'productImages', req.params.id);
-	res
-		.status(200)
-		.json({
-			data: { data: getProductList, images: productImages },
-			message: 'Product get Successfully',
-		});
+	res.status(200).json({
+		data: { data: getProductList, images: productImages },
+		message: 'Product get Successfully',
+	});
 };
 
+module.exports.deleteProduct = async (req, res, next) => {
+	const getProductList = await ProductModel.ProductTable.findOneAndDelete({
+		_id: req.params.id,
+	});
+	if (getProductList) {
+		res.status(200).json({
+			data: { data: getProductList },
+			message: 'Product Delete Successfully',
+		});
+	} else {
+		res.status(400).json({
+			message: 'Product ID not Found',
+		});
+	}
+};
 
 // PRODUCT IMAGES//
 
-module.exports.addProfileImages = async (req, res, next) => {
+module.exports.addProductImages = async (req, res, next) => {
 	const data = await ProductModel.ProductImageTable.findOne({
 		id: req.body.productId,
 	});
-	// console.log(req.body.productId,'idddd',Data['img'])
+	console.log(req.body, 'file');
 	let images = [];
 	let AddProductImage;
 	let full_data = {};
@@ -99,10 +197,11 @@ module.exports.addProfileImages = async (req, res, next) => {
 			img: newarr,
 			...req.body,
 		};
-    
+
 		AddProductImage = await ProductModel.ProductImageTable.findOneAndUpdate(
 			{ id: req.body.productId },
-			full_data
+			full_data,
+			{ new: true }
 		);
 		res
 			.status(200)
@@ -129,4 +228,3 @@ module.exports.addProfileImages = async (req, res, next) => {
 			.json({ data: AddProductImage, message: 'Image Add Successfully' });
 	}
 };
-

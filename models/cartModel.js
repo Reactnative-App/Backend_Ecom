@@ -4,8 +4,10 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 const CartSchema = new Schema({
-  productId: String,
-  quantity:Number,
+  userId:Number,
+  profucts:[
+    
+  ]
 });
 
 module.exports = mongoose.model("cart", CartSchema);
